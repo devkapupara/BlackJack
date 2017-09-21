@@ -1,0 +1,343 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <ctype.h>
+
+void shuffle(char * deck[], int deckVal[]);        // Shuffles the deck and deck values
+void intro();                                     // Prints the intro message
+int askBet(int balance);                          // Verifies correct bet
+char getChoice();                                 // Asks the user if they want to continue or quit
+char hitOrStay();                                 // To hit a card or stay
+int pScore(int player[], int playerCounter);      // Calculates player scores
+int aScore(int ai[], int aiCounter);              // Calculates computer scores
+
+enum Status {CONTINUE,BUST};                      // To track if somebody lost or not
+
+int main(void)
+{
+    int balance;
+    int bet;
+    char *playerHand[10];               // Player's Cards
+    int playerScore;                    // Player's Score
+    int playerScoreTracker[10];         // Value of Player's Cards
+    char *aiHand[10];                   // Ai's Cards
+    int aiScore;                        // Ai's Score
+    int aiScoreTracker[10];             // Value of Ai's Cards
+    int cardC;                          // Cards dealt Tracker
+    int playerC;                        // Player's Card Count
+    int aiC;                            // Ai's Card Count
+    enum Status gameStatus;
+
+    srand(time(NULL));
+
+    char *cards[52] = {"Ace of Hearts", "Two of Hearts", "Three of Hearts", "Four of Hearts", "Five of Hearts", "Six of Hearts", "Seven of Hearts", "Eight of Hearts", "Nine of Hearts", "Ten of Hearts", "Jack of Hearts", "Queen of Hearts", "King of Hearts",
+                       "Ace of Diamonds", "Two of Diamonds", "Three of Diamonds", "Four of Diamonds", "Five of Diamonds", "Six of Diamonds", "Seven of Diamonds", "Eight of Diamonds", "Nine of Diamonds", "Ten of Diamonds", "Jack of Diamonds", "Queen of Diamonds", "King of Diamonds",
+                       "Ace of Spades", "Two of Spades", "Three of Spades", "Four of Spades", "Five of Spades", "Six of Spades", "Seven of Spades", "Eight of Spades", "Nine of Spades", "Ten of Spades", "Jack of Spades", "Queen of Spades", "King of Spades",
+                       "Ace of Clubs", "Two of Clubs", "Three of Clubs", "Four of Clubs", "Five of Clubs", "Six of Clubs", "Seven of Clubs", "Eight of Clubs", "Nine of Clubs", "Ten of Clubs", "Jack of Clubs", "Queen of Clubs", "King of Clubs"};
+
+    int cardVal[52] = {1,2,3,4,5,6,7,8,9,10,10,10,10,1,2,3,4,5,6,7,8,9,10,10,10,10,1,2,3,4,5,6,7,8,9,10,10,10,10,1,2,3,4,5,6,7,8,9,10,10,10,10};
+
+    intro();
+
+    printf("\n\t\t%s ", "Enter amount to cash in for BlackJack coins: ");
+    scanf("%d", &balance);
+    getchar();
+    int startingBal = balance;
+    char choice = 'c';
+
+    while (balance > 0 && choice == 'c')
+    {
+        memset(playerHand,0,10);                  // Reset all the parameters at the beginning of a game
+        memset(playerScoreTracker,0,10);
+        memset(aiScoreTracker,0,10);
+        memset(aiHand,0,10);
+        playerScore = 0;
+        aiScore = 0;
+        cardC = 0;
+        playerC = 0;
+        aiC = 0;
+        gameStatus = CONTINUE;
+
+        shuffle(cards, cardVal);                  // Shuffle the deck
+        bet = askBet(balance);                    // Get the bet
+        for (size_t i = 0; i < 2; i++)            // Deal two cards and keep track of cards dealt
+        {
+            playerHand[playerC] = cards[cardC];
+            playerScoreTracker[playerC] = cardVal[cardC];
+            playerC++;
+            cardC++;
+
+            aiHand[aiC] = cards[cardC];
+            aiScoreTracker[aiC] = cardVal[cardC];
+            aiC++;
+            cardC++;
+        }
+
+        playerScore = pScore(playerScoreTracker, playerC);  // Keep track of scores
+        aiScore = aScore(aiScoreTracker, aiC);
+
+        puts("\n\t\tYou were dealt:\n");
+        for (size_t i = 0; i < playerC; i++)
+        {
+            printf("\t\t%s\n", playerHand[i]);
+        }
+        printf("\t\t%s %d.\n", "Your score is:", playerScore);
+
+        char hs = hitOrStay();          // Hit or Stay?
+
+        while (hs == 'h')                                   // If player want to hit, allow the option to hit until user chooses to stay
+        {
+            playerHand[playerC] = cards[cardC];
+            playerScoreTracker[playerC] = cardVal[cardC];
+            playerC++;
+            cardC++;
+            playerScore = pScore(playerScoreTracker, playerC);
+            printf("\n\t\tYou were dealt %s.\n", playerHand[playerC - 1]);
+            if (playerScore > 21)
+            {
+                printf("\n\t\tYou are busted. Your score was %d.\n", playerScore);      // If at any point score exceeds 21, user looses and gamestatus becomes BUST
+                balance -= bet;
+                printf("\n\t\tYour balance is now $%d.\n",balance);
+                gameStatus = BUST;
+                break;
+            }
+            else
+            {
+                printf("\t\tYour score is %d.\n",playerScore);
+                hs = hitOrStay();
+            }
+        }
+
+        if (gameStatus == CONTINUE)
+        {
+            while (aiScore < 17)                                // When user stays, it is AI's turn to hit or stay.
+            {
+                puts("\n\t\tComputer chooses to hit!");
+                aiHand[aiC] = cards[cardC];
+                aiScoreTracker[aiC] = cardVal[cardC];
+                aiC++;
+                cardC++;
+                aiScore = aScore(aiScoreTracker, aiC);
+                if (aiScore > 21)                                 // If AI hits and looses, user wins
+                {
+                    puts("\n\t\tThe Computer was busted. You win this round. Bet will be added to your balance.");
+                    balance += bet;
+                    printf("\n\t\tYour balance is now $%d.\n",balance);
+                    gameStatus = BUST;
+                }
+            }
+        }
+
+        if (gameStatus == CONTINUE)
+        {
+            puts("\n\t\tComputer has finished its turn. Lets see who won!");      // If AI Stays too, its time to determine the winner.
+
+            if (playerScore == 21)
+            {
+                puts("\n\t\tBlackJack! Perfect 21. You won. Bet will be added to your balance.");
+                balance += bet;
+            }
+            else if (playerScore == aiScore)
+            {
+                puts("\n\t\tIt's a tie. Nobody loses, nobody wins!");
+            }
+            else if (aiScore > playerScore)
+            {
+                puts("\n\t\tThe Computer has won this round. Bet would be deducted from your balance.");
+                balance -= bet;
+            }
+            else if (playerScore > aiScore)
+            {
+                puts("\n\t\tYou win this round. Bet will be added to your balance.");
+                balance += bet;
+            }
+            printf("\n\t\tYour balance is now $%d.\n",balance);
+        }
+
+        puts("\n\t\tThe Computer had the following hand:");                     // Display AI's hand and its score.
+        for (size_t i = 0; i < aiC; i++)
+        {
+            printf("\n\t\t%s", aiHand[i]);
+        }
+        printf("\n\t\tfor a score of %d.\n",aiScore);
+
+        if (balance == 0)                           // Control for balance check
+        {
+            puts("\n\t\tOh oh! Seems like you ran out of money. Better luck next time!");
+            break;
+        }
+        choice = getChoice();                       // Provide an option to continue or quit.
+        if (choice == 'c')
+        {
+            puts("\n\t\tYou like to take risks. Lets play another round then!\n");
+            printf("\t\t");
+            for (size_t i = 0; i < 100; i++)
+            {
+                printf("%s","*");
+            }
+            puts("");
+        }
+        else
+        {
+            if (balance > startingBal)                // If quit, then determine if user made money or not and print appropriate message.
+            {
+                puts("\n\t\tYou made some $$$. Congratulations! Hope we see you again.");
+            }
+            else if (balance < startingBal)
+            {
+                puts("\n\t\tAlways another day to play. Many fortunes lie ahead of you. Until Next Time.");
+            }
+            else
+            {
+                puts("No lose no gain!.");
+            }
+            printf("\t\t");
+            for (size_t i = 0; i < 100; i++)
+            {
+                printf("%s","*");
+            }
+            puts("");
+            break;
+        }
+    }
+}
+
+void shuffle(char * deck[], int deckVal[])             // Shuffle the deck algorithm such that no two cards are repeated
+{
+  for (unsigned int i = 0; i < 52; i++)               // Shuffle all cards except the first
+  {
+      size_t j = rand() % 52;
+      char *t = deck[j];
+      int temp = deckVal[j];
+
+      deck[j] = deck[i];
+      deck[i] = t;
+
+      deckVal[j] = deckVal[i];
+      deckVal[i] = temp;
+
+  }
+
+void intro()                                          // Intro message
+{
+    printf("\t\t");
+    for (size_t i = 0; i < 100; i++)
+    {
+        printf("%s","*");
+    }
+    printf("\n\t\t\t\t\t\t%s\n\t\t%s\n\t\t%s\n\t\t%s\n\t\t%s\n\t\t%s\n\t\t%s\n", "Hello and Welcome to the BlackJack Table!",
+           "-> At the BlackJack Table the closest player to 21, with a value less than or equal to 21 wins!",
+           "-> If you exceed 21, you lose. If the computer has card values closer to 21, you lose.",
+           "-> If you are closer to 21 than the computer, then you win!",
+           "-> Note: Ace defaults to 11, but will change to 1, should you exceed 21.",
+           "-> Also Beware the Computer NEVER turns down a bet and is infinitely wealthy.",
+           "-> Let's get started!");
+    printf("\t\t");
+    for (size_t i = 0; i < 100; i++)
+    {
+        printf("%s","*");
+    }
+    puts("\n");
+}
+
+int askBet(int bal)                                 // Makes sure that the bet user made is positive and less than their current balance.
+{
+    int bet;
+    printf("\n\t\t%s","Place your bet: ");
+    scanf("%d", &bet);
+    while (bet > bal || bet < 0)
+    {
+        printf("\n\t\t%s:", "Invalid entry, try again: ");
+        scanf("%d", &bet);
+    }
+    getchar();
+    return bet;
+}
+
+char getChoice()                                    // Gets user's choice to quit or to contine
+{
+    char choice;
+    printf ("\n\t\t%s", "Do you want to play another game [C/c] or call it a day [Q/q]? ");
+    scanf("%c", &choice);
+    getchar();
+    choice = tolower(choice);
+    while (choice != 'c' && choice != 'q')
+    {
+        printf ("\n\t\t%s", "Invalid input, enter [C/c] to continue or [Q/q] to quit: ");
+        scanf("%c", &choice);
+        getchar();
+        choice = tolower(choice);
+    }
+    return choice;
+}
+
+int pScore(int player[], int playerCounter)         // Calculates player score with taking the dual value of Aces into account.
+{
+    int score = 0;
+    int aceCount = 0;
+    for (size_t i = 0; i < playerCounter; i++)
+    {
+        if (player[i] == 1)
+        {
+            aceCount++;
+        }
+        else
+        {
+            score += player[i];
+        }
+    }
+    if (aceCount > 0)
+    {
+        if (score + aceCount * 11 < 22)
+        {
+            score += aceCount * 11;
+        }
+        else
+        {
+            score += aceCount;
+        }
+    }
+    return (score);
+}
+
+int aScore(int ai[], int aiCounter)               // Calculates AI's score while taking dual values of aces into account.
+{
+    int score = 0;
+    int aceCount = 0;
+    for (size_t i = 0; i < aiCounter; i++)
+    {
+        if (ai[i] == 1)
+        {
+            aceCount++;
+        }
+        else
+        {
+            score += ai[i];
+        }
+    }
+    if (aceCount > 0)
+    {
+        if (score + aceCount * 11 < 22)
+        {
+            score += aceCount * 11;
+        }
+        else
+        {
+            score += aceCount;
+        }
+    }
+    return (score);
+}
+
+char hitOrStay()                                  // Asks user to Hit or Stay
+{
+    char choice;
+    do {
+        printf ("%s", "\n\t\tPlease press [H] to hit and [S] to stay: ");
+        scanf("%c", &choice);
+        getchar();
+        choice = tolower(choice);
+    } while (choice != 'h' && choice != 's');
+    return choice;
+}
